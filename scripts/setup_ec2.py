@@ -389,7 +389,68 @@ def query_yes_no(question, default="yes", allow_skip=False):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
+def ensure_and_get_subnets_info(regions):
+    clients = []
+    for region in regions:
+        client = boto3.client(
+            "ec2",
+            region_name=region,
+            aws_access_key_id=ACCESS_KEY,
+            aws_secret_access_key=ACCESS_SECRET,
+        )
+        client.region = region
+        clients.append(client)
+    subnet_info = OrderedDict()
+    for client in clients:
+        print("Processing region {}".format(client.region))
+        cidr_block = '172.40.0.0/16'
+        existing_vpcs = list(client.describe_vpcs()['Vpcs'])  # vpcs.all())
+        assert len(existing_vpcs) == 1
+        vpc_id = existing_vpcs[0]['VpcId']
+        # first find the group
+        groups = client.describe_security_groups()['SecurityGroups']
+        groups = [g for g in groups if g['GroupName'] == SECURITY_GROUP_NAME and g['VpcId'] == vpc_id]
+        assert len(groups) == 1
+        vpc_id = groups[0]['VpcId']
+        security_group = groups[0]['GroupId']
+        subnets = client.describe_subnets()['Subnets']
+        subnets = [s for s in subnets if s['VpcId'] == vpc_id and
+                   any([x['Value'] == SUBNET_NAME and x['Key'] == 'Name' for x in s.get('Tags', [])])]
+        zones = sorted([x['ZoneName'] for x in client.describe_availability_zones()['AvailabilityZones']])
+        # if len(subnets) < len(zones):
+        #     # assert len(subnets) == 0
+        #     for idx, zone_name in enumerate(zones):
+        #         try:
+        #             subnet = client.create_subnet(
+        #                 VpcId=vpc_id,
+        #                 CidrBlock='172.40.%d.0/20' % (idx * 16),
+        #                 AvailabilityZone=zone_name,
+        #             )
+        #             client.create_tags(
+        #                 Resources=[subnet['Subnet']['SubnetId']],
+        #                 Tags=[
+        #                     {
+        #                         'Key': 'Name',
+        #                         'Value': SUBNET_NAME,
+        #                     }
+        #                 ]
+        #             )
+        #
+        #         except botocore.exceptions.ClientError as e:
+        #             if e.response['Error']['Code'] in ['InvalidParameterValue', 'InvalidSubnet.Conflict']:
+        #                 continue
+        #             else:
+        #                 raise e
+        #     subnets = client.describe_subnets()['Subnets']
+        #     subnets = [s for s in subnets if s['VpcId'] == vpc_id]
+        #     # assert len(subnets) == len(zones)
+        #     # create subnets
+        for subnet in subnets:
+            assert subnet['AvailabilityZone'] not in subnet_info
+            subnet_info[subnet['AvailabilityZone']] = dict(SubnetID=subnet['SubnetId'], Groups=security_group)
+    return subnet_info
 
 if __name__ == "__main__":
-    setup()
+    # setup()
     # setup_ec2()
+    print(ensure_and_get_subnets_info(REGIONS))

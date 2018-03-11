@@ -235,6 +235,7 @@ class EC2SpotDocker(DockerMode):
             security_groups=None,
             aws_s3_path=None,
             extra_ec2_instance_kwargs=None,
+            # network_interfaces=None,
             **kwargs
             ):
         super(EC2SpotDocker, self).__init__(**kwargs)
@@ -258,6 +259,7 @@ class EC2SpotDocker(DockerMode):
         self.iam_instance_profile_name = iam_instance_profile_name
         self.extra_ec2_instance_kwargs = extra_ec2_instance_kwargs
         self.checkpoint = None
+        # self.network_interfaces = network_interfaces
 
         self.s3_mount_path = 's3://%s/doodad/mount' % self.s3_bucket
         self.aws_s3_path = aws_s3_path or 's3://%s/doodad/logs' % self.s3_bucket
@@ -295,7 +297,7 @@ class EC2SpotDocker(DockerMode):
             iam_instance_profile_name=self.iam_instance_profile_name,
             security_groups=self.security_groups,
             security_group_ids=self.security_group_ids,
-            network_interfaces=[],
+            # network_interfaces=self.network_interfaces,
         )
         aws_config = dict(default_config)
         if self.s3_log_name is None:
@@ -509,7 +511,7 @@ class EC2SpotDocker(DockerMode):
             EbsOptimized=False,
             SecurityGroups=aws_config["security_groups"],
             SecurityGroupIds=aws_config["security_group_ids"],
-            NetworkInterfaces=aws_config["network_interfaces"],
+            # NetworkInterfaces=aws_config["network_interfaces"],
             IamInstanceProfile=dict(
                 Name=aws_config["iam_instance_profile_name"],
             ),
@@ -536,6 +538,19 @@ class EC2SpotDocker(DockerMode):
         if verbose:
             pprint.pprint(spot_args)
         if not dry:
+            # import ipdb
+            # ipdb.set_trace()
+            del spot_args['LaunchSpecification']['SecurityGroupIds']
+            del spot_args['LaunchSpecification']['SecurityGroups']
+            spot_args['LaunchSpecification']['EbsOptimized']=True
+            spot_args['LaunchSpecification']['KeyName'] = 'thanard-rllab-us-east-1'
+            spot_args['LaunchSpecification']['NetworkInterfaces'] = [
+                {'AssociatePublicIpAddress': True,
+                 'Groups': ['sg-00768671'],
+                 'DeviceIndex': 0,
+                 'SubnetId': 'subnet-74d57d58'
+                 }]
+            # spot_args['IamInstanceProfile'] = {'Name': 'thanard-rllab'}
             response = ec2.request_spot_instances(**spot_args)
             print('Launched EC2 job - Server response:')
             pprint.pprint(response)
@@ -558,6 +573,7 @@ class EC2SpotDocker(DockerMode):
 class EC2AutoconfigDocker(EC2SpotDocker):
     def __init__(self,
             region='us-west-1',
+            # zone=None,
             s3_bucket=None,
             image_id=None,
             aws_key_name=None,
@@ -574,7 +590,7 @@ class EC2AutoconfigDocker(EC2SpotDocker):
         credentials=AWSCredentials(aws_key=AUTOCONFIG.aws_access_key(), aws_secret=AUTOCONFIG.aws_access_secret())
         security_group_ids = AUTOCONFIG.aws_security_group_ids()[region]
         security_groups = AUTOCONFIG.aws_security_groups()
-
+        # network_interfaces = AUTOCONFIG.network_interfaces(zone)
         super(EC2AutoconfigDocker, self).__init__(
                 s3_bucket=s3_bucket,
                 image_id=image_id,
@@ -584,6 +600,7 @@ class EC2AutoconfigDocker(EC2SpotDocker):
                 region=region,
                 security_groups=security_groups,
                 security_group_ids=security_group_ids,
+                # network_interfaces=network_interfaces,
                 **kwargs
                 )
 

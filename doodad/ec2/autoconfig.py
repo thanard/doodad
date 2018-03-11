@@ -40,4 +40,16 @@ class Autoconfig(object):
     def aws_key_name(self, region):
         return self.config['aws_key_names'][region]
 
+    def network_interfaces(self, zone):
+        # print(zone)
+        # import ipdb
+        # ipdb.set_trace()
+        subnet_info = eval(self.config['subnet_info'][zone])
+        return [dict(
+                    SubnetId=subnet_info["SubnetID"],
+                    Groups=[subnet_info["Groups"]],
+                    DeviceIndex=0,
+                    AssociatePublicIpAddress=True,
+                )]
+
 AUTOCONFIG = Autoconfig()
