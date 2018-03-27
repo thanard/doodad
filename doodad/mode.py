@@ -4,6 +4,8 @@ import tempfile
 import uuid
 import time
 import base64
+import datetime
+import dateutil.tz
 
 from doodad.ec2.autoconfig import AUTOCONFIG
 
@@ -286,9 +288,12 @@ class EC2SpotDocker(DockerMode):
                          region=self.s3_bucket_region)
 
     def make_timekey(self):
-        return '%d'%(int(time.time()*1000))
+        now = datetime.datetime.now(dateutil.tz.tzlocal())
+        timestamp = now.strftime('%Y-%m-%d-%H-%M-%S')
+        return timestamp
+        # return '%d'%(int(time.time()*1000))
 
-    def launch_command(self, main_cmd, mount_points=None, dry=False, verbose=False):
+    def launch_command(self, main_cmd, mount_points=None, dry=False, verbose=False, postfix=None):
         default_config = dict(
             image_id=self.image_id,
             instance_type=self.instance_type,
@@ -301,7 +306,8 @@ class EC2SpotDocker(DockerMode):
         )
         aws_config = dict(default_config)
         if self.s3_log_name is None:
-            exp_name = "{}-{}".format(self.s3_log_prefix, self.make_timekey())
+            # exp_name = "{}-{}".format(self.s3_log_prefix, self.make_timekey())
+            exp_name = "{}-{}-{}".format(self.s3_log_prefix, self.make_timekey(), postfix)
         else:
             exp_name = self.s3_log_name
         exp_prefix = self.s3_log_prefix
@@ -418,6 +424,8 @@ class EC2SpotDocker(DockerMode):
                     log_dir=ec2_local_dir,
                     s3_path=s3_path,
                 ))
+            elif isinstance(mount, MountEC2):
+                mnt_args += ' -v %s:%s' % (mount.ec2_path, mount.mount_point)
             else:
                 raise NotImplementedError()
 

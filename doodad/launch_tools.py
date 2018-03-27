@@ -1,6 +1,6 @@
 import os
 
-from .mode import LOCAL, Local
+from .mode import LOCAL, Local, EC2AutoconfigDocker
 from .arg_parse import encode_args, ARGS_DATA, USE_CLOUDPICKLE, CLOUDPICKLE_VERSION
 from .mount import MountLocal
 
@@ -29,6 +29,7 @@ def launch_python(
         verbose=False,
         use_cloudpickle=False,
         target_mount=None,
+        postfix=None
 ):
     """
 
@@ -71,7 +72,10 @@ def launch_python(
         fake_display=fake_display,
         use_cloudpickle=use_cloudpickle,
     )
-    mode.launch_command(command, mount_points=mount_points, dry=dry, verbose=verbose)
+    if isinstance(mode, EC2AutoconfigDocker):
+        mode.launch_command(command, mount_points=mount_points, dry=dry, verbose=verbose, postfix=postfix)
+    else:
+        mode.launch_command(command, mount_points=mount_points, dry=dry, verbose=verbose)
     return target_mount
 
 HEADLESS = 'xvfb-run -a -s "-ac -screen 0 1400x900x24 +extension RANDR"'

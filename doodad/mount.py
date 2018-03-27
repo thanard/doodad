@@ -110,3 +110,11 @@ class MountS3(Mount):
     @property
     def include_string(self):
         return ' '.join(['--include \'%s\''%type_ for type_ in self.include_types])
+
+class MountEC2(Mount):
+    def __init__(self, ec2_path, mount_point, **kwargs):
+        super(MountEC2, self).__init__(mount_point, **kwargs)
+        self.ec2_path = ec2_path
+
+    def __str__(self):
+        return 'MountEC2@%s' % self.ec2_path
