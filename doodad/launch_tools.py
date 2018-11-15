@@ -22,14 +22,13 @@ def launch_python(
         mode=LOCAL,
         mount_points=None,
         args=None,
-        env=None,
-        dry=False,
         fake_display=False,
         target_mount_dir='target',
-        verbose=False,
         use_cloudpickle=False,
         target_mount=None,
-        postfix=None
+        postfix=None,
+        launch_locally=None,
+        **launch_command_kwargs
 ):
     """
 
@@ -38,7 +37,6 @@ def launch_python(
     :param mode:
     :param mount_points:
     :param args:
-    :param env:
     :param dry:
     :param fake_display:
     :param target_mount_dir:
@@ -51,6 +49,8 @@ def launch_python(
         args = {}
     if mount_points is None:
         mount_points = []
+    if launch_locally is None:
+        launch_locally = isinstance(mode, Local)
 
     if target_mount is None:
         # mount
@@ -58,12 +58,12 @@ def launch_python(
         if not target_mount_dir:
             target_mount_dir = target_dir
         target_mount_dir = os.path.join(target_mount_dir, os.path.basename(target_dir))
-        if isinstance(mode, Local):
+        if launch_locally:
             target_mount = MountLocal(local_dir=target_dir)
         else:
             target_mount = MountLocal(local_dir=target_dir, mount_point=target_mount_dir)
     mount_points = mount_points + [target_mount]
-    target_full_path = os.path.join(target_mount.docker_mount_dir(), os.path.basename(target))
+    target_full_path = os.path.join(target_mount.mount_dir(), os.path.basename(target))
 
     command = make_python_command(
         target_full_path,
@@ -72,10 +72,11 @@ def launch_python(
         fake_display=fake_display,
         use_cloudpickle=use_cloudpickle,
     )
+
     if isinstance(mode, EC2AutoconfigDocker):
-        mode.launch_command(command, mount_points=mount_points, dry=dry, verbose=verbose, postfix=postfix)
+        mode.launch_command(command, mount_points=mount_points, postfix=postfix, **launch_command_kwargs)
     else:
-        mode.launch_command(command, mount_points=mount_points, dry=dry, verbose=verbose)
+        mode.launch_command(command, mount_points=mount_points, **launch_command_kwargs)
     return target_mount
 
 HEADLESS = 'xvfb-run -a -s "-ac -screen 0 1400x900x24 +extension RANDR"'
@@ -94,8 +95,8 @@ def make_python_command(
 
     args_encoded, cp_version = encode_args(args, cloudpickle=use_cloudpickle)
     if args:
-        cmd = '%s=%s %s=%s %s=%s %s' % (ARGS_DATA, args_encoded, 
-                USE_CLOUDPICKLE, str(int(use_cloudpickle)), 
+        cmd = '%s=%s %s=%s %s=%s %s' % (ARGS_DATA, args_encoded,
+                USE_CLOUDPICKLE, str(int(use_cloudpickle)),
                 CLOUDPICKLE_VERSION, cp_version,
                 cmd)
 
