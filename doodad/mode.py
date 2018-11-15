@@ -237,6 +237,7 @@ class EC2SpotDocker(DockerMode):
             security_groups=None,
             aws_s3_path=None,
             extra_ec2_instance_kwargs=None,
+            pre_cmd=None,
             # network_interfaces=None,
             **kwargs
             ):
@@ -261,6 +262,7 @@ class EC2SpotDocker(DockerMode):
         self.iam_instance_profile_name = iam_instance_profile_name
         self.extra_ec2_instance_kwargs = extra_ec2_instance_kwargs
         self.checkpoint = None
+        self.pre_cmd = pre_cmd
         # self.network_interfaces = network_interfaces
 
         self.s3_mount_path = 's3://%s/doodad/mount' % self.s3_bucket
@@ -308,6 +310,7 @@ class EC2SpotDocker(DockerMode):
         if self.s3_log_name is None:
             # exp_name = "{}-{}".format(self.s3_log_prefix, self.make_timekey())
             exp_name = "{}-{}-{}".format(self.s3_log_prefix, self.make_timekey(), postfix)
+            # exp_name = "{}-{}".format(self.make_timekey(), postfix)
         else:
             exp_name = self.s3_log_name
         exp_prefix = self.s3_log_prefix
@@ -458,7 +461,8 @@ class EC2SpotDocker(DockerMode):
         if self.checkpoint and self.checkpoint.restore:
             raise NotImplementedError()
         else:
-            docker_cmd = self.get_docker_cmd(main_cmd, use_tty=False, extra_args=mnt_args, pythonpath=py_path)
+            docker_cmd = self.get_docker_cmd(main_cmd, use_tty=False, extra_args=mnt_args,
+                                             pythonpath=py_path, pre_cmd=self.pre_cmd)
         sio.write(docker_cmd+'\n')
 
         # Sync all output mounts to s3 after running the user script
